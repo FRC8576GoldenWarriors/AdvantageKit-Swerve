@@ -65,6 +65,7 @@ def includeDesktopSupport = true
 // Configuration for AdvantageKit
 repositories {
     mavenLocal()
+    mavenCentral()
 }
 
 task(replayWatch, type: JavaExec) {
