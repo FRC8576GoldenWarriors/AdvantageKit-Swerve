@@ -354,8 +354,8 @@ public class Drive extends SubsystemBase implements Vision.VisionConsumer {
         // is present.
         Arrays.sort(xComponentList);
         Arrays.sort(yComponentList);
-        double deltaMedianX = (xComponentList[1] + xComponentList[2]) / 2;
-        double deltaMedianY = (yComponentList[1] + yComponentList[2]) / 2;
+        double deltaMedianX = (xComponentList[1] + xComponentList[2] + xComponentList[3] + xComponentList[0]) / 4;
+        double deltaMedianY = (yComponentList[1] + yComponentList[2] + yComponentList[3] + yComponentList[0]) / 4;
         boolean[] areModulesSkidding = new boolean[4];
         double[] skidAmountX = new double[4];
         double[] skidAmountY = new double[4];
@@ -363,7 +363,7 @@ public class Drive extends SubsystemBase implements Vision.VisionConsumer {
             double deltaX = xComponentList[i];
             double deltaY = yComponentList[i];
             if (Math.abs(deltaX - deltaMedianX) > 0.03
-                    || Math.abs(deltaY - deltaMedianY) > 0.0275) { // 0.5 is the skid threshold in m/s
+                    || Math.abs(deltaY - deltaMedianY) > 0.029) { // 0.5 is the skid threshold in m/s
                 areModulesSkidding[i] = true;
             } else {
                 areModulesSkidding[i] = false;
