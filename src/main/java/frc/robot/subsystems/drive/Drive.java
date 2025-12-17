@@ -362,8 +362,8 @@ public class Drive extends SubsystemBase implements Vision.VisionConsumer {
         for (int i = 0; i < 4; i++) {
             double deltaX = xComponentList[i];
             double deltaY = yComponentList[i];
-            if (Math.abs(deltaX - deltaMedianX) > 0.5
-                    || Math.abs(deltaY - deltaMedianY) > 0.5) { // 0.5 is the skid threshold in m/s
+            if (Math.abs(deltaX - deltaMedianX) > 0.03
+                    || Math.abs(deltaY - deltaMedianY) > 0.0275) { // 0.5 is the skid threshold in m/s
                 areModulesSkidding[i] = true;
             } else {
                 areModulesSkidding[i] = false;
