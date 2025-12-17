@@ -47,6 +47,7 @@ import frc.robot.Constants;
 import frc.robot.Constants.Mode;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.util.LocalADStarAK;
+import java.util.Arrays;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
@@ -155,12 +156,17 @@ public class Drive extends SubsystemBase implements Vision.VisionConsumer {
             // Read wheel positions and deltas from each module
             SwerveModulePosition[] modulePositions = new SwerveModulePosition[4];
             SwerveModulePosition[] moduleDeltas = new SwerveModulePosition[4];
+            boolean[] isSkidding = this.calculateSkidding();
             for (int moduleIndex = 0; moduleIndex < 4; moduleIndex++) {
                 modulePositions[moduleIndex] = modules[moduleIndex].getOdometryPositions()[i];
                 moduleDeltas[moduleIndex] = new SwerveModulePosition(
                         modulePositions[moduleIndex].distanceMeters - lastModulePositions[moduleIndex].distanceMeters,
                         modulePositions[moduleIndex].angle);
-                lastModulePositions[moduleIndex] = modulePositions[moduleIndex];
+                if (!isSkidding[moduleIndex]) {
+                    lastModulePositions[moduleIndex] = modulePositions[moduleIndex];
+                } else {
+                    modulePositions[moduleIndex] = lastModulePositions[moduleIndex];
+                }
             }
 
             // Update gyro angle
@@ -320,5 +326,54 @@ public class Drive extends SubsystemBase implements Vision.VisionConsumer {
     /** Returns the maximum angular speed in radians per sec. */
     public double getMaxAngularSpeedRadPerSec() {
         return maxSpeedMetersPerSec / driveBaseRadius;
+    }
+
+    public boolean[] calculateSkidding() {
+        SwerveModuleState[] moduleStates = getModuleStates();
+        ChassisSpeeds currentChassisSpeeds = getChassisSpeeds();
+        // Step 1: Create a measured ChassisSpeeds object with solely the rotation
+        // component
+        ChassisSpeeds rotationOnlySpeeds =
+                new ChassisSpeeds(0.0, 0.0, currentChassisSpeeds.omegaRadiansPerSecond + .05);
+        double[] xComponentList = new double[4];
+        double[] yComponentList = new double[4];
+        // Step 2: Convert it into module states with kinematics
+        SwerveModuleState[] rotationalStates = kinematics.toSwerveModuleStates(rotationOnlySpeeds);
+        // Step 3: Subtract the rotational states from the module states to get the
+        // translational vectors and calculate the magnitudes.
+        // These should all be the same direction and magnitude if there is no skid.
+        for (int i = 0; i < moduleStates.length; i++) {
+            double deltaX = moduleStates[i].speedMetersPerSecond * Math.cos(moduleStates[i].angle.getRadians())
+                    - rotationalStates[i].speedMetersPerSecond * Math.cos(rotationalStates[i].angle.getRadians());
+            double deltaY = moduleStates[i].speedMetersPerSecond * Math.sin(moduleStates[i].angle.getRadians())
+                    - rotationalStates[i].speedMetersPerSecond * Math.sin(rotationalStates[i].angle.getRadians());
+            xComponentList[i] = deltaX;
+            yComponentList[i] = deltaY;
+        }
+        // Step 4: Compare all of the translation vectors. If they aren't the same, skid
+        // is present.
+        Arrays.sort(xComponentList);
+        Arrays.sort(yComponentList);
+        double deltaMedianX = (xComponentList[1] + xComponentList[2]) / 2;
+        double deltaMedianY = (yComponentList[1] + yComponentList[2]) / 2;
+        boolean[] areModulesSkidding = new boolean[4];
+        double[] skidAmountX = new double[4];
+        double[] skidAmountY = new double[4];
+        for (int i = 0; i < 4; i++) {
+            double deltaX = xComponentList[i];
+            double deltaY = yComponentList[i];
+            if (Math.abs(deltaX - deltaMedianX) > 0.5
+                    || Math.abs(deltaY - deltaMedianY) > 0.5) { // 0.5 is the skid threshold in m/s
+                areModulesSkidding[i] = true;
+            } else {
+                areModulesSkidding[i] = false;
+            }
+            skidAmountX[i] = Math.abs(deltaX - deltaMedianX);
+            skidAmountY[i] = Math.abs(deltaY - deltaMedianY);
+        }
+        Logger.recordOutput("Drive/skidAmountX", skidAmountX);
+        Logger.recordOutput("Drive/skidAmountY", skidAmountY);
+        Logger.recordOutput("Drive/Skids", areModulesSkidding);
+        return areModulesSkidding;
     }
 }
